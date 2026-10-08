@@ -28,6 +28,7 @@ app.get('/products', async (req, res, next) => {
 //-------------
 app.post('/', (req, res, next) => {
   try {
+    //  валидация. Если не передать name, MySQL отклонит вставку из-за NOT NULL, и клиент получит 500 с текстом SQL-ошибки вместо понятного 400
     if (!req.body || Object.keys(req.body).length === 0) {
       const error = new Error('No data received');
       error.status = 400;
@@ -42,7 +43,22 @@ app.post('/', (req, res, next) => {
 
 app.post('/products', async (req, res, next) => {
   try {
+    //  валидация. Если не передать name, MySQL отклонит вставку из-за NOT NULL, и клиент получит 500 с текстом SQL-ошибки вместо понятного 400
+    if (!req.body || Object.keys(req.body).length === 0) {
+      const error = new Error('No data received');
+      error.status = 400;
+      throw error;
+    }
+
     const { name, price } = req.body;
+    const numericPrice = Number(price)
+
+    if(!Number.isFinite(numericPrice || numericPrice < 0)){  // isFinite() - Является ли значение обычным конечным числом
+      const error = new Error('Price must be a valid positive number')
+      error.status = 400;
+      throw error;
+    }
+
     const [result] = await pool.query(
       'INSERT INTO products (name, price) VALUES (?, ?)',
       [name, price],
@@ -70,12 +86,17 @@ app.use((req, res, next) => {
 //------------
 
 app.use((error, req, res, next) => {
-  const status = error.status || 500;
+ 
+  const status = error.status;
+   if(status === 500){
+    console.error(error.stack); // Если 500 - внутренняя ошибка сервера → показать разработчику подробный stack
+   }
 
-  res.status(status).send({
-    error: error.message || 'Internal Server Error',
+   // определяет, что отправить клиенту:Если это 500 → скрыть внутреннюю информацию.Если это 400/404 → можно отправить error.message
+  res.status(status).json({error: status === 500 ? 'Internal Server Error' : error.message })
+    
   });
-});
+
 
 app.listen(PORT, () => {
   console.log(`Server connecting at http://localhost:${PORT}`);

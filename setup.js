@@ -16,6 +16,6 @@ createProductsTable()
   .catch((error) => {
     console.error('Error creating table:', error);
   })
-  .finally(() => {
-    pool.end;
+  .finally(async () => {
+    await pool.end();
   });
